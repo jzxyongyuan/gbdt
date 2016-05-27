@@ -45,6 +45,7 @@ private:
 class RegressionTree {
 public:
     RegressionTree() {
+        _m_gain                 = NULL;
         _m_node_cnt             = 0;
         _m_max_depth            = GBDT_MAX_DEPTH;
         _m_min_leaf_size        = GBDT_MIN_LEAF_SIZE;

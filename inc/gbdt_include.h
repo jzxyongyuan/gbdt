@@ -28,6 +28,7 @@ const int    GBDT_MAX_BUFF_LEN             = 512 * 1024 * 1024;
 const int    GBDT_SQUARED_ERROR            = 1;
 const int    GBDT_MIN_LEAF_SIZE            = 1;
 const int    GBDT_LOG_LIKELIHOOD           = 2;
+const int    GBDT_DEFAULT_THREAD_NUM       = 3;
 const int    GBDT_DEFAULT_ITERATIONS       = 10000;
 const bool   GBDT_DEFAULT_INIT_GUESS       = false;
 const bool   GBDT_DEFAULT_IGNORE_WEIGHT    = false;

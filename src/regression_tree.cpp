@@ -101,8 +101,8 @@ GBDTValue RegressionTree::average(GBDTData* train_data, int sample_size) {
     GBDTValue s = 0;
     GBDTValue c = 0;
     for (int i = 0; i < sample_size; i++) {
-        s += (*train_data)[i]->target * (*train_data)[i]->weight;
-        c += (*train_data)[i]->weight;
+        s += (*train_data)[i] -> target * (*train_data)[i] -> weight;
+        c += (*train_data)[i] -> weight;
     }
     if (c == 0) {
         return static_cast<GBDTValue>(0);

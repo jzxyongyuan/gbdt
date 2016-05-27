@@ -29,6 +29,12 @@ int GBDT::init(const char* path, const char* file) {
     }
 
     try {
+        _m_thread_num = config["THREAD_NUM"].to_int32();
+    } catch (...) {
+        LOG(WARNING) << "fail to read THREAD_NUM, use default value " << GBDT_DEFAULT_THREAD_NUM;
+        _m_thread_num = GBDT_DEFAULT_THREAD_NUM;
+    }
+    try {
         _m_iterations = config["ITERATION"].to_int32();
     } catch (...) {
         LOG(WARNING) << "fail to read ITERATION, use default value " << GBDT_DEFAULT_ITERATIONS;
@@ -81,7 +87,7 @@ int GBDT::init(const char* path, const char* file) {
         LOG(WARNING) << "fail to read IGNORE_WEIGHT, use default value false";
         _m_ignore_weight = GBDT_DEFAULT_IGNORE_WEIGHT;
     }
-    
+   
     return 0;
 }
 
@@ -108,8 +114,55 @@ int GBDT::init_fit() {
     for (int i = 0; i < _m_iterations; i++) {
         _m_trees[i].init(_m_feature_size, _m_loss_type);
     }
+    _m_multi_thread = new pthread_t[_m_thread_num];
+    _m_multi_data   = new GBDT_PREDICT_T[_m_thread_num];
+    for (int i = 0; i < _m_thread_num; i++) {
+        _m_multi_data[i].gbdt            = this;
+        _m_multi_data[i].thread_id       = i;
+        _m_multi_data[i].thread_num      = _m_thread_num;
+        _m_multi_data[i].max_sample_num  = _m_sample_ratio * _m_train_data.size();
+    }
 
     return 0;
+}
+
+void* multi_predict(void* arg) {
+    GBDT_PREDICT_T* data = (GBDT_PREDICT_T*)arg;
+    int        thread_id = data -> thread_id;
+    int       thread_num = data -> thread_num;
+    int      sample_size = data -> max_sample_num;
+    int     max_tree_num = data -> max_tree_num;
+    GBDT*           gbdt = data -> gbdt;
+    GBDTValue      value = 0;
+    
+    for (int i = 0; i < sample_size; i++) {
+        if ((i - thread_id) % thread_num != 0) {
+            continue;
+        }
+        gbdt -> predict(i, max_tree_num, value);
+        
+        gbdt -> update_target(i, value);
+    }
+    return NULL;
+}
+
+int GBDT::update_target(int idx, GBDTValue value) {
+    if (idx < 0 || idx >= _m_train_data.size()) {
+        return 1;
+    }
+    if (_m_loss_type == GBDT_SQUARED_ERROR) {
+        _m_train_data[idx] -> target = _m_train_data[idx]->label - value;
+    } else if (_m_loss_type == GBDT_LOG_LIKELIHOOD) {
+        _m_train_data[idx] -> target = 
+                logit_loss_gradient(_m_train_data[idx]->label, value);
+    }
+    DLOG(INFO) << "idx: " << idx << " label " << _m_train_data[idx]->label 
+            << " target: " << _m_train_data[idx]->target << " p " << value;
+    return 0;
+}
+
+int GBDT::predict(int idx, int max_tree_num, GBDTValue& p) {
+    return predict(_m_train_data[idx], max_tree_num, p);
 }
 
 int GBDT::predict(GBDT_TUPLE_T* tuple, int max_tree_num, GBDTValue &p) {
@@ -118,14 +171,12 @@ int GBDT::predict(GBDT_TUPLE_T* tuple, int max_tree_num, GBDTValue &p) {
         p = tuple -> initial_guess;
     }
     DLOG(INFO) << "bias: " << p;
-    
     for (int i = 0; i < max_tree_num; i++) {
         GBDTValue tmp = 0;
         _m_trees[i].predict(tuple, tmp);
         DLOG(INFO) << "i: " << i << " " << tmp;
         p += _m_shrinkage * tmp;
     }
-
     return 0;
 }
 
@@ -143,18 +194,28 @@ int GBDT::fit() {
         if (_m_sample_ratio < 1) {
             _m_train_data.random();
         }
-        for (int s_idx = 0; s_idx < samples; s_idx++) {
-            GBDTValue p;
-            predict(_m_train_data[s_idx], iter, p);
-            
-            if (_m_loss_type == GBDT_SQUARED_ERROR) {
-                _m_train_data[s_idx]->target = _m_train_data[s_idx]->label - p;
-            } else if (_m_loss_type == GBDT_LOG_LIKELIHOOD) {
-                _m_train_data[s_idx]->target = 
-                        logit_loss_gradient(_m_train_data[s_idx]->label, p);
+        if (_m_thread_num > 1 && iter > 100) {
+            for (int i = 0; i < _m_thread_num; i++) {
+                _m_multi_data[i].max_tree_num = iter;
+                pthread_create(&_m_multi_thread[i], NULL, multi_predict, (void*)(&_m_multi_data[i]));
             }
-            DLOG(INFO) << "idx: " << s_idx << " label " << _m_train_data[s_idx]->label 
-                    << " target: " << _m_train_data[s_idx]->target << " p " << p;
+            for (int i = 0; i < _m_thread_num; i++) {
+                pthread_join(_m_multi_thread[i], NULL);
+            }
+        } else {
+            for (int s_idx = 0; s_idx < samples; s_idx++) {
+                GBDTValue p;
+                predict(_m_train_data[s_idx], iter, p);
+                
+                if (_m_loss_type == GBDT_SQUARED_ERROR) {
+                    _m_train_data[s_idx]->target = _m_train_data[s_idx]->label - p;
+                } else if (_m_loss_type == GBDT_LOG_LIKELIHOOD) {
+                    _m_train_data[s_idx]->target = 
+                            logit_loss_gradient(_m_train_data[s_idx]->label, p);
+                }
+                DLOG(INFO) << "idx: " << s_idx << " label " << _m_train_data[s_idx]->label 
+                        << " target: " << _m_train_data[s_idx]->target << " p " << p;
+            }
         }
         _m_trees[iter].fit(&_m_train_data, samples);
     }
