@@ -21,26 +21,28 @@ namespace gbdt
 {
 
 typedef double GBDTValue;
-const int    GBDT_MAX_DEPTH                = 2;
-const int    GBDT_MAX_LINE_LEN             = 1024;
-const int    GBDT_MAX_PATH_LEN             = 1024;
-const int    GBDT_MAX_BUFF_LEN             = 512 * 1024 * 1024;
-const int    GBDT_SQUARED_ERROR            = 1;
-const int    GBDT_MIN_LEAF_SIZE            = 1;
-const int    GBDT_LOG_LIKELIHOOD           = 2;
-const int    GBDT_DEFAULT_THREAD_NUM       = 3;
-const int    GBDT_DEFAULT_ITERATIONS       = 10000;
-const bool   GBDT_DEFAULT_INIT_GUESS       = false;
-const bool   GBDT_DEFAULT_IGNORE_WEIGHT    = false;
-const double GBDT_DEFAULT_SHRINKAGE        = 0.1;
-const double GBDT_DEFAULT_FEAT_RATIO       = 1.0;
-const double GBDT_DEFAULT_SAMPLE_RATIO     = 1.0;
-const GBDTValue GBDT_MAX_VALUE             = std::numeric_limits<GBDTValue>::max();
-const GBDTValue GBDT_MIN_VALUE             = std::numeric_limits<GBDTValue>::min();
-const GBDTValue GBDT_UNKNOWN_VALUE         = GBDT_MIN_VALUE;
+const int       GBDT_MAX_DEPTH                = 2;
+const int       GBDT_MAX_LINE_LEN             = 1024;
+const int       GBDT_MAX_PATH_LEN             = 1024;
+const int       GBDT_MAX_BUFF_LEN             = 512 * 1024 * 1024;
+const int       GBDT_SQUARED_ERROR            = 1;
+const int       GBDT_MIN_LEAF_SIZE            = 1;
+const int       GBDT_LOG_LIKELIHOOD           = 2;
+const int       GBDT_DEFAULT_SAVE_TMP         = 1000;
+const int       GBDT_DEFAULT_THREAD_NUM       = 3;
+const int       GBDT_DEFAULT_ITERATIONS       = 10000;
+const bool      GBDT_DEFAULT_INIT_GUESS       = false;
+const bool      GBDT_DEFAULT_IGNORE_WEIGHT    = false;
+const double    GBDT_DEFAULT_SHRINKAGE        = 0.1;
+const double    GBDT_DEFAULT_FEAT_RATIO       = 1.0;
+const double    GBDT_DEFAULT_SAMPLE_RATIO     = 1.0;
+const GBDTValue GBDT_MAX_VALUE                = std::numeric_limits<GBDTValue>::max();
+const GBDTValue GBDT_MIN_VALUE                = std::numeric_limits<GBDTValue>::min();
+const GBDTValue GBDT_UNKNOWN_VALUE            = GBDT_MIN_VALUE;
 
 const char* const GBDT_ITEM_DELIM = " ";
 const char* const GBDT_FEAT_DELIM = ":";
+const char* const GBDT_DEFAULT_TMP_MODEL = "tmp/tmp";
  
 typedef struct _gbdt_conf_t
 {

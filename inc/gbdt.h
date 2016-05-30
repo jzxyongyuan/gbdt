@@ -54,6 +54,8 @@ public:
 
     int train(const char* train_file);
 
+    int save_tmp(const int iter);
+
     int save(const char* model_file);
 
     int load(const char* model_file);
@@ -74,8 +76,10 @@ public:
     int predict(int idx, int max_tree_num, GBDTValue &p);
 
 private:
+    int               _m_save_tmp;
     int               _m_thread_num;
     int               _m_iterations;
+    int               _m_cur_iterations;
     int               _m_feature_size;
     bool              _m_ignore_weight;
     bool              _m_load_initial_guess;
@@ -93,6 +97,8 @@ private:
     int init_fit();
 
     int fit();
+
+    int cal_gain();
 
     int predict(GBDT_TUPLE_T* tuple, int max_tree_num, GBDTValue &p);
 

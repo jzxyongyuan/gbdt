@@ -47,6 +47,12 @@ int GBDT::init(const char* path, const char* file) {
         return 1;
     }
     try {
+        _m_save_tmp = config["SAVE_TMP"].to_int32();
+    } catch (...) {
+        LOG(WARNING) << "fail to read SAVE_TMP, use default value " << GBDT_DEFAULT_SAVE_TMP;
+        _m_save_tmp = GBDT_DEFAULT_SAVE_TMP;
+    }
+    try {
         _m_shrinkage = config["SHRINKAGE"].to_double();
     } catch (...) {
         LOG(WARNING) << "fail to read SHRINKAGE, use default value " << GBDT_DEFAULT_SHRINKAGE;
@@ -87,7 +93,7 @@ int GBDT::init(const char* path, const char* file) {
         LOG(WARNING) << "fail to read IGNORE_WEIGHT, use default value false";
         _m_ignore_weight = GBDT_DEFAULT_IGNORE_WEIGHT;
     }
-   
+    _m_cur_iterations = 0; 
     return 0;
 }
 
@@ -205,20 +211,25 @@ int GBDT::fit() {
         } else {
             for (int s_idx = 0; s_idx < samples; s_idx++) {
                 GBDTValue p;
+
                 predict(_m_train_data[s_idx], iter, p);
-                
-                if (_m_loss_type == GBDT_SQUARED_ERROR) {
-                    _m_train_data[s_idx]->target = _m_train_data[s_idx]->label - p;
-                } else if (_m_loss_type == GBDT_LOG_LIKELIHOOD) {
-                    _m_train_data[s_idx]->target = 
-                            logit_loss_gradient(_m_train_data[s_idx]->label, p);
-                }
-                DLOG(INFO) << "idx: " << s_idx << " label " << _m_train_data[s_idx]->label 
-                        << " target: " << _m_train_data[s_idx]->target << " p " << p;
+
+                update_target(s_idx, p);
             }
         }
         _m_trees[iter].fit(&_m_train_data, samples);
+        if ((iter + 1) % _m_save_tmp == 0) {
+            LOG(INFO) << iter << " " << _m_save_tmp;
+            save_tmp(iter + 1);
+        }
     }
+    _m_cur_iterations = _m_iterations;
+
+    cal_gain();
+    return 0;
+}
+
+int GBDT::cal_gain() {
     // Calculate gain
     GBDTValue gain[_m_feature_size];
 
@@ -239,7 +250,6 @@ int GBDT::fit() {
     }
     return 0;
 }
-
 int GBDT::test(const char* test_file) {
     int ret         = 0;
     int samples     = 0;
@@ -288,21 +298,30 @@ int GBDT::train(const char* train_file) {
     return 0;
 }
 
+int GBDT::save_tmp(const int iter) {
+    _m_cur_iterations = iter;
+    char file_name[GBDT_MAX_PATH_LEN] = {0};
+    snprintf(file_name, GBDT_MAX_PATH_LEN, "%s_%d.mdl", GBDT_DEFAULT_TMP_MODEL, iter);
+    save(file_name);
+    
+    return 0;
+}
+
 int GBDT::save(const char* model_file) {
     FILE* fp = fopen(model_file, "wb");
     if (fp == NULL) {
         return 1;
     }
-    fwrite(&_m_bias,       sizeof(GBDTValue), 1, fp);
-    fwrite(&_m_shrinkage,  sizeof(GBDTValue), 1, fp);
-    fwrite(&_m_iterations, sizeof(int),       1, fp);
-    fwrite(&_m_loss_type,  sizeof(int),       1, fp);
-    for (int i = 0; i < _m_iterations; i++) {
+    fwrite(&_m_bias,           sizeof(GBDTValue), 1, fp);
+    fwrite(&_m_shrinkage,      sizeof(GBDTValue), 1, fp);
+    fwrite(&_m_cur_iterations, sizeof(int),       1, fp);
+    fwrite(&_m_loss_type,      sizeof(int),       1, fp);
+    for (int i = 0; i < _m_cur_iterations; i++) {
         _m_trees[i].save(fp);
     }
     fclose(fp);
     DLOG(INFO) << "bias: " << _m_bias << " shrinkage: " << _m_shrinkage << 
-            " tree_cnt: " << _m_iterations << " loss: " << _m_loss_type;
+            " tree_cnt: " << _m_cur_iterations << " loss: " << _m_loss_type;
     LOG(INFO) << "save model success";
     return 0;
 }
